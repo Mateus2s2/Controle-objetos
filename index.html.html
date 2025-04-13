@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Controle de Objetos</title>
+  <style>
+    body {
+  font-family: Arial, sans-serif;
+  background-color: #A9A9A9;
+  margin: 0;
+  padding: 20px;
+   }
+
+    /* NOVO: container dos objetos */
+    #objectsList {
+    display: flex;
+   flex-wrap: wrap;
+   gap: 20px;
+   justify-content: center;
+  }
+
+   /* BLOCOS dos objetos */
+  .object {
+   border: 1px solid #ccc;
+   padding: 10px;
+   border-radius: 3px;
+   background-color: #fafafa;
+   width: 45%;               /* Dois por linha */
+   min-width: 200px;
+   box-sizing: border-box;
+   text-align: center;
+  }
+
+ /* Estilos extras (login, botões, etc.) */
+ input[type='text'], input[type='password'] {
+   width: 100%;
+   padding: 10px;
+   margin: 5px 0 15px 0;
+   border: 1px solid #ccc;
+   border-radius: 3px;
+  }
+  button {
+   width: 100%;
+   padding: 10px;
+   background-color: #4CAF50;
+   color: white;
+   border: none;
+   border-radius: 3px;
+   cursor: pointer;
+  }
+ button:hover {
+  background-color: #45a049;
+  }
+ .object img {
+  width: 100px;
+  height: auto;
+  margin-bottom: 10px;
+  }
+
+  </style>
+</head>
+<body>
+
+  <div id='loginForm'>
+    <h2>Login</h2>
+    <input type='text' id='username' placeholder='Nome de usuário' required>
+    <input type='password' id='password' placeholder='Senha' required>
+    <button onclick='login()'>Entrar</button>
+  </div>
+
+  <div id='mainApp' style='display:none;'>
+    <h2>Objetos Disponíveis</h2>
+    <div id='objectsList'></div>
+    <button onclick='logout()'>Sair</button>
+  </div>
+
+<script type="module">
+  // 🔌 Importações do Firebase
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+
+  // 🔐 Suas credenciais Firebase
+  const firebaseConfig = {
+    apiKey: "AIzaSyCwn8Efk-kdv1kGfNwB7MD5ozodGhUdy4I",
+    authDomain: "controle-de-objetos.firebaseapp.com",
+    databaseURL: "https://controle-de-objetos-default-rtdb.firebaseio.com",
+    projectId: "controle-de-objetos",
+    storageBucket: "controle-de-objetos.firebasestorage.app",
+    messagingSenderId: "1064803137862",
+    appId: "1:1064803137862:web:5fd14215a26288c1a6cd47"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const database = getDatabase(app);
+
+  // 🔐 Login fixo (sem Firebase Auth ainda)
+  const users = [
+    { username: 'joao', password: '123' },
+    { username: 'maria', password: 'abc' },
+    { username: 'mateus', password: '1234' },
+  ];
+
+  const objectRefs = [
+    { id: 'cinto1', name: 'Cinto', imageUrl: 'https://www.calcadosparatrabalhar.com.br/media/catalog/product/cache/1/image/0dc2d03fe217f8c83829496872af24a0/I/M/IMG_5171.jpg' },
+    { id: 'cinto2', name: 'Cinto', imageUrl: 'https://www.calcadosparatrabalhar.com.br/media/catalog/product/cache/1/image/0dc2d03fe217f8c83829496872af24a0/I/M/IMG_5171.jpg' },
+    { id: 'oximetro1', name: 'Oxímetro', imageUrl: 'https://www.metrotokyo.com.br/assets/images/capa-mtk-2516-new-600x600.png' },
+    { id: 'oximetro2', name: 'Oxímetro', imageUrl: 'https://www.metrotokyo.com.br/assets/images/capa-mtk-2516-new-600x600.png' }
+  ];
+
+  let currentUser = null;
+
+  window.login = function() {  // Tornando a função global, acessível ao HTML
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value.trim();
+
+  const user = users.find(u => u.username === username && u.password === password);
+  if (user) {
+    currentUser = user.username;
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    renderObjects();
+  } else {
+    alert('Usuário ou senha incorretos.');
+  }
+}
+
+
+  window.logout = function() {  // Expondo logout globalmente
+  currentUser = null;
+  document.getElementById('loginForm').style.display = 'block';
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('username').value = '';
+  document.getElementById('password').value = '';
+}
+
+
+  function renderObjects() {
+    const list = document.getElementById('objectsList');
+    list.innerHTML = '';
+
+    objectRefs.forEach((obj) => {
+      const objRef = ref(database, 'objects/' + obj.id);
+      onValue(objRef, (snapshot) => {
+        const data = snapshot.val() || { holder: null };
+
+        const div = document.createElement('div');
+        div.className = 'object';
+        div.innerHTML = `
+          <h3>${obj.name}</h3>
+          <img src="${obj.imageUrl}" alt="${obj.name}" style="width: 100px; height: auto; margin-bottom: 10px;">
+          <p><strong>Com:</strong> ${data.holder || 'Disponível'}</p>
+          <button onclick="toggleObject('${obj.id}', '${data.holder || ''}')">
+            ${data.holder === currentUser ? 'Devolver' : 'Pegar'}
+          </button>
+        `;
+
+        const existing = document.querySelector(`[data-id="${obj.id}"]`);
+        div.setAttribute('data-id', obj.id);
+
+        if (existing) {
+          existing.replaceWith(div);
+        } else {
+          list.appendChild(div);
+        }
+      });
+    });
+  }
+
+  window.toggleObject = function (id, currentHolder) {
+    if (currentHolder && currentHolder !== currentUser) {
+      alert('Este objeto já está com outro usuário.');
+      return;
+    }
+
+    const objRef = ref(database, 'objects/' + id);
+    const newHolder = currentHolder === currentUser ? null : currentUser;
+    set(objRef, { holder: newHolder });
+  };
+</script>
+
+
+</body>
+</html>
